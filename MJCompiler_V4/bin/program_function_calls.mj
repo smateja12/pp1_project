@@ -1,0 +1,46 @@
+//Test 302
+
+program test302
+
+const int jedan = 1;
+
+int i;
+bool ibool;
+
+int niz2;
+
+int niz[];
+int a, curr;
+
+{
+	
+	int sum(int z, int d)
+	{
+		return z + d;
+	}
+	
+	bool verify() {
+		print('v');
+		return false;
+	}	
+	
+	void main() 
+	{
+
+		a = 2;	
+		niz = new int[3];
+		niz[0] = 1 * a; // 2
+		niz[1] = 2 * a; // 4
+		niz[2] = sum(niz[1], niz[0]) * a + 1; // 13
+		
+		niz.foreach( curr => print(curr); );
+		
+		read(niz[0]); // 1
+		read(niz[1]); // 2
+		read(niz[2]); // 3
+		print(eol); // eol
+		print(sum(sum(niz[0], niz[1]), niz[2])); // 6
+				
+	}
+		
+}

@@ -1,0 +1,29 @@
+program MJProgramWhileLoop
+
+int x, y, n;
+
+{
+	void main() 
+	{
+		x = 0;
+		y = 0;
+		n = 6;
+		
+		if (2 < 5 && 1 > 5 || 5 != 10 && 3 != 1) {
+			print(100);
+		}
+		
+		while(x < 3 || y < 5) {
+        	while(n > 0) {
+                print(n);
+                n--;
+            }
+            
+            print(x);
+            print(y);
+            x++;
+            y++;
+        }
+	}
+		
+}

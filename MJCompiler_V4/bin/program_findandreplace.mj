@@ -1,0 +1,33 @@
+program MJProgramFindAndReplace
+	
+	int arr[];
+	int arrReplaced[];
+	int curr, duzina;
+	
+{		
+
+	void main()
+	{
+
+		// testiranje findAndReplace funkcije
+		
+		// int[] arr = {0, 10, 20, 10, 30};
+        // int[] replaced1 = MJProgramFindAndReplace.findAndReplace(arr, 10, curr -> curr + 5);
+        // System.out.println(Arrays.toString(replaced1));  // Output: [0, 15, 20, 15, 30]
+        
+        // int[] replaced2 = MJProgramFindAndReplace.findAndReplace(arr, 20, curr -> curr * 2);
+        // System.out.println(Arrays.toString(replaced2));  // Output: [0, 10, 40, 10, 30]
+		
+		arr = new int[5];
+		arr[0] = 0;   
+		arr[1] = 10;
+		arr[2] = 0;
+		arr[3] = 10;
+		arr[4] = 30;
+		 
+		arrReplaced = arr.findAndReplace(10, curr => curr * 2);
+		
+		arrReplaced.foreach( curr => print(curr); ); // 0 20 0 20 30
+		
+	}
+}

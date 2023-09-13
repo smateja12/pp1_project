@@ -1,0 +1,26 @@
+program MJProgramLoops
+
+int row, number;
+
+{
+
+	void main() 
+	{
+		
+		row = 0;
+        
+        while (row < 5) {
+            number = 0;
+            
+            while (number < 10) {
+                print(number);
+                number++;
+            }
+            
+            print(eol);
+            row++;
+        }
+		
+	}
+		
+}

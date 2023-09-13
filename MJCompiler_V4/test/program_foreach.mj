@@ -1,0 +1,24 @@
+program MJProgram4
+	
+	int niz[], curr, niz2;
+	
+{	
+	void main()
+	{
+		// testiranje foreach loop
+		niz = new int[3];
+		niz[0] = 10;
+		niz[1] = 20;
+		niz[2] = 30;
+		
+		niz.foreach( curr => print(curr); );
+		
+		niz2 = 0;
+		niz.foreach(curr => {
+			niz2 = niz2 + curr * curr;
+		});
+		
+		print(niz2);
+		
+	}
+}

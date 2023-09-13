@@ -1,0 +1,92 @@
+program MJProgram
+    int x, y, elem, n;
+    int arr[], arr1[];
+    char arr2[];
+    bool res;
+    int curr;
+    
+{
+    int f(int a) int fd; {
+        curr = 9;
+        return a + 1;
+    }
+    
+    void g(char c) {
+        print(c);
+    }
+    
+    void main() int curr, ident, i;
+    {
+        arr = new int[5];
+        arr2 = new char[5];
+        n = 6;
+        print(curr);
+        
+        read(curr);
+        print(curr);
+    
+        if(x == 5) {
+            print(9 + 3);
+            print('c');
+        }
+        else if(y == 6) {
+            print(y);
+        }
+        else {
+            print(10);
+        }
+        
+        while(x < 3 || y < 5) {
+            while(n > 0) {
+                print(n);
+                n--;
+            }
+            
+            print(x);
+            print(y);
+            x++;
+            y++;
+        }
+        
+        f(6);
+        g('d');
+        x = 1;
+        y = 3;
+        
+        arr[x + y]++;
+        print(arr[x + y]);
+        x = 3 + 4 * 9;
+        print(x);
+        print(arr[0] + 1);
+        arr2[4] = 'c';
+        
+        res = false;
+        res = arr2.findAny('c');
+        
+        res = false;
+        x = 2;
+        y = 4;
+        arr[4] = 10;
+        res = arr.findAny(x * y + x);
+        
+        if(res) {
+            print(6);
+        }
+        
+        i = 0;
+        
+        while(i < 5) {
+            print(arr[i]);
+            i++;
+        }
+        
+        arr1 = arr.findAndReplace(10, ident => 12);
+        
+        i = 0;
+        
+        while(i < 5) {
+            print(arr1[i]);
+            i++;
+        }
+    }
+}

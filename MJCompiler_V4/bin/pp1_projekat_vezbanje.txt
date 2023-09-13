@@ -1,0 +1,564 @@
+// while i if smene
+
+// posto while/if petlje mogu biti ugnjezdavane, moramo pamtiti adrese skokova po nivoima ugnjezdavanja - lista listi adresa
+	List<List<Integer>> listBreakAddresses = new ArrayList<>();
+	List<List<Integer>> listBitwiseAndBlockAddresses = new ArrayList<>();
+	List<List<Integer>> listBitwiseOrBlockAddresses = new ArrayList<>();
+	
+	public void visit(WhileStmt whileStmt) {
+	    // kraj while petlje
+	    listBitwiseAndBlockAddresses.remove(listBitwiseAndBlockAddresses.size() - 1);
+	    listBitwiseOrBlockAddresses.remove(listBitwiseOrBlockAddresses.size() - 1);
+	    listBreakAddresses.remove(listBreakAddresses.size() - 1);
+	    listWhileTopAddresses.remove(listWhileTopAddresses.size() - 1);
+	}
+
+	public void visit(WhileStmtFirstPart whileStmtFirstPart) {
+	    // pocetak while pelje
+	    listBitwiseAndBlockAddresses.add(new ArrayList<>());
+	    listBitwiseOrBlockAddresses.add(new ArrayList<>());
+	    listBreakAddresses.add(new ArrayList<>());
+	    
+	    // zapamtiti adresu pocetka while petlje
+	    listWhileTopAddresses.add(Code.pc);
+	}
+	
+	// obrada uslova u okviru while petlje/if naredbe
+	public void visit(CondFactOne condFactOne) {
+	    Code.loadConst(0); // false vrednost
+	    Code.putFalseJump(Code.ne, 0); // jeq skacemo izvan while/if 
+	    int lastIndex = listBitwiseAndBlockAddresses.size() - 1;
+	    listBitwiseAndBlockAddresses.get(lastIndex).add(Code.pc - 2);
+	}
+
+	public void visit(CondFactMore condFactMore) {
+	    Map<Class<? extends Relop>, Integer> relopMap = new HashMap<>();
+	    relopMap.put(EqualOperand.class, Code.eq);
+	    relopMap.put(NotEqualOperand.class, Code.ne);
+	    relopMap.put(GreaterOperand.class, Code.gt);
+	    relopMap.put(GreaterOrEqualOperand.class, Code.ge);
+	    relopMap.put(LessOperand.class, Code.lt);
+	    relopMap.put(LessOrEqualOperand.class, Code.le);
+
+	    Class<? extends Relop> relopClass = condFactMore.getRelop().getClass();
+	    int relopCode = relopMap.get(relopClass);
+	    Code.putFalseJump(relopCode, 0);
+	    
+	    // prosli smo uslov
+	    int lastIndex = listBitwiseAndBlockAddresses.size() - 1;
+	    listBitwiseAndBlockAddresses.get(lastIndex).add(Code.pc - 2);
+	}
+	
+	// detektovan or blok, ovde fixamo AND adrese
+	public void visit(BeforeLastOrElement beforeLastOrElement) {
+		// dosli smo do ove smene ako su sve prethodne smene == 1, skacemo u if granu
+		Code.putJump(0);
+	    int lastIndex = listBitwiseOrBlockAddresses.size() - 1;
+	    listBitwiseOrBlockAddresses.get(lastIndex).add(Code.pc - 2);
+	    	    
+	    fixAddresses(listBitwiseAndBlockAddresses);	
+	}
+	
+	public void visit(WhileStmtLastPart whileStmtLastPart) {
+	    // skacemo na pocetak while petlje
+		Code.putJump(listWhileTopAddresses.get(listWhileTopAddresses.size() - 1));
+		
+	    // prepraviti adrese skokova
+		fixAddresses(listBitwiseAndBlockAddresses);
+		fixAddresses(listBitwiseOrBlockAddresses);
+	    fixAddresses(listBreakAddresses);
+	}
+
+	public void visit(ContinueStmt continueStmt) {
+	    // skacemo na pocetak while petlje
+	    Code.putJump(listWhileTopAddresses.get(listWhileTopAddresses.size() - 1));
+	}
+
+	public void visit(BreakStmt breakStmt) {
+	    // iskacemo izvan while petlje
+	    Code.putJump(0);
+	    int lastIndex = listBreakAddresses.size() - 1;
+	    listBreakAddresses.get(lastIndex).add(Code.pc - 2);
+	}
+	
+	// if statement
+	List<List<Integer>> listJumpFromIfAddresses = new ArrayList<>();
+	
+	// kraj if smene
+	public void visit(IfStmt ifStmt) {
+	    listBitwiseAndBlockAddresses.remove(listBitwiseAndBlockAddresses.size() - 1);
+	    listBitwiseOrBlockAddresses.remove(listBitwiseOrBlockAddresses.size() - 1);
+	    listJumpFromIfAddresses.remove(listJumpFromIfAddresses.size() - 1);
+	}
+	
+	// kraj if else smene
+	public void visit(IfElseStmt ifElseStmt) {
+	    fixAddresses(listJumpFromIfAddresses);
+	    listBitwiseOrBlockAddresses.remove(listBitwiseOrBlockAddresses.size() - 1);
+	    listBitwiseAndBlockAddresses.remove(listBitwiseAndBlockAddresses.size() - 1);
+	    listJumpFromIfAddresses.remove(listJumpFromIfAddresses.size() - 1);
+	}
+	
+	// pocetak if smene
+	public void visit(BeforeCondition beforeCondition) {
+	    listBitwiseAndBlockAddresses.add(new ArrayList<>());
+	    listBitwiseOrBlockAddresses.add(new ArrayList<>());
+	    listJumpFromIfAddresses.add(new ArrayList<>());
+	}
+	
+	// zavrsetak uslova u if naredbi
+	public void visit(RparentIfCondition rparentIfCondition) {
+		// prepravljamo or blok adrese
+		fixAddresses(listBitwiseOrBlockAddresses);
+	}
+	
+	// kraj if bloka/pocetak else smene
+	public void visit(IfStmtPartLast lastPart) {
+		// ako smo detektovali if-else smenu, kada semo zavrsili sa obradom if grane, skacemo izvan nje
+		boolean partElseDetected = (!(lastPart.getParent() instanceof IfStmt)); 
+	    if (partElseDetected) {
+	        Code.putJump(0);
+	        listJumpFromIfAddresses.get(listJumpFromIfAddresses.size() - 1).add(Code.pc - 2);
+	    }	
+	    fixAddresses(listBitwiseAndBlockAddresses);
+	}
+	
+====================================================
+
+
+// mod niz = niz2; copy
+	public void visit(AssignDesignator assignDesignator) {
+		
+//		if (assignDesignator.getDesignator().obj.getType().getKind() == Struct.Array) {
+//			if (assignDesignator.getExpr() instanceof ExpressionTerm) {
+//				ExpressionTerm et = (ExpressionTerm) assignDesignator.getExpr();
+//				if (et.getTerm() instanceof TermFactor) {
+//					TermFactor tf = (TermFactor) et.getTerm();
+//					if (tf.getFactor() instanceof FactorVar) {
+//						FactorVar fv = (FactorVar) tf.getFactor();
+//						Obj rightArrayObj = fv.getDesignator().obj;
+//						if (rightArrayObj != null && rightArrayObj.getType().getKind() == Struct.Array) {
+//							System.out.println("COPY ARRAY!");
+//							
+//							// nizNovi = nizStari;
+//							
+//							// prvo je potrebno da alociramo novi niz iste duzine kao stari
+//							
+//							Code.put(Code.arraylength);
+//							Code.put(Code.dup);
+//							Code.put(Code.newarray);
+//							
+//							if (rightArrayObj.getType().getElemType() == Tab.charType) {
+//								// CHAR array
+//								Code.put(0);
+//							}else {
+//								// NON-CHAR array
+//								Code.put(1);
+//							}
+//							Code.store(assignDesignator.getDesignator().obj);
+//							
+//							Code.loadConst(0); // duzina_niza, 0(cnt)
+//							
+//							int pocetakAdr = Code.pc;
+//							
+//							Code.put(Code.dup2);
+//							Code.putFalseJump(Code.ne, 0);
+//							int krajAdr = Code.pc - 2;
+//							
+//							// kopiranje niza
+//							// duzina_niza, cnt
+//							
+//							// expected: duzina_niza, cnt, niz_novi, cnt, niz_stari[cnt]
+//							
+//							Code.load(assignDesignator.getDesignator().obj); // duzina_niza, cnt, novi_niz
+//							Code.put(Code.dup2); // duzina_niza, cnt, novi_niz, cnt, novi_niz
+//							Code.put(Code.pop); // duzina_niza, cnt, novi_niz, cnt
+//							Code.load(rightArrayObj); // duzina_niza, cnt, novi_niz, cnt, stari_niz
+//							Code.put(Code.dup2); // duzina_niza, cnt, novi_niz, cnt, stari_niz, cnt, stari_niz
+//							Code.put(Code.pop); // duzina_niza, cnt, novi_niz, cnt, stari_niz, cnt
+//							
+//							if (rightArrayObj.getType().getElemType() == Tab.charType) {
+//								// CHAR array
+//								Code.put(Code.baload);
+//							}else {
+//								// NON-CHAR array
+//								Code.put(Code.aload);
+//							}
+//							// duzina_niza, cnt, novi_niz, cnt, stari_niz[cnt]
+//							
+//							if (rightArrayObj.getType().getElemType() == Tab.charType) {
+//								// CHAR array
+//								Code.put(Code.bastore);
+//							}else {
+//								// NON-CHAR array
+//								Code.put(Code.astore);
+//							}
+//							// novi_niz[cnt] = stari_niz[cnt]
+//							
+//							// duzina_niza, cnt
+//							Code.loadConst(1);
+//							Code.put(Code.add);
+//							Code.putJump(pocetakAdr);
+//							
+//							// KRAJ
+//							Code.fixup(krajAdr);
+//							Code.put(Code.pop);
+//							Code.put(Code.pop);
+//							
+//							return;
+//						}
+//					}
+//				}
+//			}
+//		}
+		
+		Code.store(assignDesignator.getDesignator().obj); // cuvamo vrednost na ExprStack = getstatic/load instrukcija
+	}
+
+// MODIFIKACIJA Factor ::= TARABA Designator:d - binarna reprezentacija broja u int value
+	public void visit(FactorBinaryNumber factorBinaryNumber) {
+		int i = 7;
+		
+		Code.loadConst(0);
+		Code.loadConst(1);
+		while (i >= 0) {
+			Code.load(factorBinaryNumber.getDesignator().obj);
+			Code.loadConst(i);
+			Code.put(Code.aload);
+			Code.loadConst(1);
+			Code.putFalseJump(Code.eq, 0); // skacemo na azuriranje brojaca
+			int adr = Code.pc - 2;
+			
+			// decimal += power;
+			Code.put(Code.dup2); // decimal, power, decimal, power
+			Code.put(Code.add); // decimal, power, decimal + power
+			Code.put(Code.dup_x2); // decimal + power, decimal, power, decimal + power
+			Code.put(Code.pop); // decimal + power, decimal, power
+			Code.put(Code.dup_x1); // decimal + power, power, decimal, power
+			Code.put(Code.pop);
+			Code.put(Code.pop); // decimal + power, power
+			
+			Code.fixup(adr);
+			// decimal+power/decimal, power
+			Code.loadConst(2);
+			Code.put(Code.mul); // decimal+power/decimal, power * 2
+			
+			i--;
+		}
+		
+		Code.put(Code.pop);
+	}
+
+
+	// MODIFIKACIJA Factor ::= @ Designator:d(niz) - max niza
+	public void visit(FactorMaxArray factorMaxArray) {
+		// MAX NIZA
+		
+//		Obj arrayObj = factorMaxArray.getDesignator().obj;
+//		
+//		Code.load(arrayObj);
+//		Code.loadConst(0);
+//		Code.put(Code.aload); // niz[0] = trenutni_max
+//		
+//		Code.load(arrayObj);
+//		Code.put(Code.arraylength); // trenutni_max, duzina_niza
+//		Code.loadConst(1);
+//		Code.put(Code.dup2);
+//		Code.putFalseJump(Code.ne, 0); // jeq *** skacemo na kraj
+//		int kraj1 = Code.pc - 2;
+//		
+//		// pocetak petlje
+//		int pocetak_petlje = Code.pc;
+//		Code.put(Code.dup2);
+//		Code.putFalseJump(Code.ne, 0);
+//		int kraj2 = Code.pc - 2; // jeq *** skacemo na kraj
+//		
+//		// odrediti max niza
+//		Code.put(Code.dup_x2);
+//		Code.load(arrayObj);
+//		Code.put(Code.dup_x1);
+//		Code.put(Code.pop);
+//		Code.put(Code.aload); 
+//		Code.put(Code.dup_x2);
+//		Code.put(Code.pop);
+//		Code.put(Code.dup_x2);
+//		Code.put(Code.pop);
+//		Code.put(Code.dup2);
+//		Code.putFalseJump(Code.gt, 0); // jle azuriraj_cnt
+//		int azuriraj_cnt = Code.pc - 2;
+//		
+//		// if telo
+//		// stack: 1, niz_len, niz[1], niz[0]
+//		// zamena novog max-a
+//		
+//		Code.put(Code.pop);
+//		Code.put(Code.dup_x2);
+//		Code.put(Code.pop);
+//		Code.put(Code.dup_x1);
+//		Code.put(Code.pop); 
+//		// azuriranje cnt
+//		Code.loadConst(1);
+//		Code.put(Code.add);
+//		Code.putJump(pocetak_petlje);
+//		
+//		// VAN if bloka
+//		// azuriranje cnt
+//		// cnt, duzina_niza, niz[cnt], current_max
+//		
+//		Code.fixup(azuriraj_cnt);
+//		Code.put(Code.dup_x2);
+//		Code.put(Code.pop);
+//		Code.put(Code.pop);
+//		Code.put(Code.dup_x2);
+//		Code.put(Code.pop);
+//		Code.put(Code.dup_x2);
+//		Code.put(Code.pop);
+//		
+//		Code.loadConst(1);
+//		Code.put(Code.add);
+//		Code.putJump(pocetak_petlje);
+//		
+//		// KRAJ
+//		Code.fixup(kraj1);
+//		Code.fixup(kraj2);
+//		Code.put(Code.pop);
+//		Code.put(Code.pop);
+	
+		// MIN NIZA
+		
+		Obj arrayObj = factorMaxArray.getDesignator().obj;
+		
+		Code.load(arrayObj);
+		Code.loadConst(0);
+		Code.put(Code.aload); // niz[0] = trenutni_max
+		
+		Code.load(arrayObj);
+		Code.put(Code.arraylength); // trenutni_max, duzina_niza
+		Code.loadConst(1);
+		Code.put(Code.dup2);
+		Code.putFalseJump(Code.ne, 0); // jeq *** skacemo na kraj
+		int kraj1 = Code.pc - 2;
+		
+		// pocetak petlje
+		int pocetak_petlje = Code.pc;
+		Code.put(Code.dup2);
+		Code.putFalseJump(Code.ne, 0);
+		int kraj2 = Code.pc - 2; // jeq *** skacemo na kraj
+		
+		// odrediti max niza
+		Code.put(Code.dup_x2);
+		Code.load(arrayObj);
+		Code.put(Code.dup_x1);
+		Code.put(Code.pop);
+		Code.put(Code.aload); 
+		Code.put(Code.dup_x2);
+		Code.put(Code.pop);
+		Code.put(Code.dup_x2);
+		Code.put(Code.pop);
+		Code.put(Code.dup2);
+		Code.putFalseJump(Code.lt, 0); // jge azuriraj_cnt
+		int azuriraj_cnt = Code.pc - 2;
+		
+		// if telo
+		// stack: 1, niz_len, niz[1], niz[0]
+		// zamena novog max-a
+		
+		Code.put(Code.pop);
+		Code.put(Code.dup_x2);
+		Code.put(Code.pop);
+		Code.put(Code.dup_x1);
+		Code.put(Code.pop); 
+		// azuriranje cnt
+		Code.loadConst(1);
+		Code.put(Code.add);
+		Code.putJump(pocetak_petlje);
+		
+		// VAN if bloka
+		// azuriranje cnt
+		// cnt, duzina_niza, niz[cnt], current_max
+		
+		Code.fixup(azuriraj_cnt);
+		Code.put(Code.dup_x2);
+		Code.put(Code.pop);
+		Code.put(Code.pop);
+		Code.put(Code.dup_x2);
+		Code.put(Code.pop);
+		Code.put(Code.dup_x2);
+		Code.put(Code.pop);
+		
+		Code.loadConst(1);
+		Code.put(Code.add);
+		Code.putJump(pocetak_petlje);
+		
+		// KRAJ
+		Code.fixup(kraj1);
+		Code.fixup(kraj2);
+		Code.put(Code.pop);
+		Code.put(Code.pop);
+	}
+	
+//	// MODIFIKACIJA niz[1, 2];
+//	// 1. i 2. element niza menjaju mesta
+//	public void visit(SwapElementsArrayDesignator swapElements) {
+//		System.out.println("SWAP ARRAY ELEMENTS!");
+//		
+//		// stack: niz, index1, index2
+//		
+//		// proveriti da li je index1 ili index2 < 0 or >= arraylength -> bacamo trap
+//		
+//		Code.put(Code.dup2); // niz, index1, index2, index1, index2
+//		Code.loadConst(0); // niz, index1, index2, index1, index2, 0 
+//		Code.put(Code.dup_x1); // niz, index1, index2, index1, 0, index2, 0
+//		
+//		Code.putFalseJump(Code.ge, 0); // jlt KRAJ
+//		int kraj1 = Code.pc - 2;
+//		
+//		Code.putFalseJump(Code.ge, 0); // jlt KRAJ
+//		int kraj2 = Code.pc - 2;
+//		
+//		Code.put(Code.dup2); // niz, index1, index2, index1, index2
+//		Code.load(swapElements.getDesignatorArrayName().getDesignator().obj); // niz, index1, index2, index1, index2, niz
+//		Code.put(Code.arraylength); // niz, index1, index2, index1, index2, duzina_niza
+//		Code.put(Code.dup_x1); // niz, index1, index2, index1, duzina_niza, index2, duzina_niza
+//		
+//		Code.putFalseJump(Code.lt, 0); // jge KRAJ
+//		int kraj3 = Code.pc - 2;
+//
+//		Code.putFalseJump(Code.lt, 0); // jge KRAJ
+//		int kraj4 = Code.pc - 2;
+//		
+//		// int tmp(swapElements.obj) = niz[index1];
+//		// niz[index1] = niz[index2];
+//		// niz[index2] = tmp;
+//		
+//		// int tmp(swapElements.obj) = niz[index1];
+//		
+//		Code.put(Code.dup2); // niz, index1, index2, index1, index2
+//		Code.put(Code.pop); // niz, index1, index2, index1, 
+//		Code.load(swapElements.getDesignatorArrayName().getDesignator().obj); // niz, index1, index2, index1, niz
+//		Code.put(Code.dup_x1); // niz, index1, index2, niz, index1, niz
+//		Code.put(Code.pop); // niz, index1, index2, niz, index1
+//		
+//		if (swapElements.getDesignatorArrayName().getDesignator().obj.getType().getElemType() == Tab.charType) {
+//			// CHAR ARRAY
+//			Code.put(Code.baload);
+//		}else {
+//			// NON-CHAR ARRAY
+//			Code.put(Code.aload); // niz, index1, index2, niz[index1]
+//		}
+//
+//		Code.store(swapElements.obj); // niz, index1, index2
+//		
+//		// niz[index1] = niz[index2];
+//		// niz, index1, index2, niz, index1, niz[index2]
+//		
+//		Code.put(Code.dup2); // niz, index1, index2, index1, index2
+//		Code.load(swapElements.getDesignatorArrayName().getDesignator().obj); // niz, index1, index2, index1, index2, niz
+//		Code.put(Code.dup_x2); // niz, index1, index2, niz, index1, index2, niz
+//		Code.put(Code.dup_x1); // niz, index1, index2, niz, index1, niz, index2, niz
+//		Code.put(Code.pop); // niz, index1, index2, niz, index1, niz, index2
+//		if (swapElements.getDesignatorArrayName().getDesignator().obj.getType().getElemType() == Tab.charType) {
+//			// CHAR ARRAY
+//			Code.put(Code.baload);
+//			Code.put(Code.bastore);
+//		}else {
+//			// NON-CHAR ARRAY
+//			Code.put(Code.aload); // niz, index1, index2, niz, index1, niz[index2]
+//			Code.put(Code.astore);
+//		}
+//	
+//		// niz[index2] = tmp;
+//		// stack: niz, index1, index2
+//		
+//		Code.put(Code.dup_x1); // niz, index2, index1, index2
+//		Code.put(Code.pop); // niz, index2, index1
+//		Code.put(Code.pop); // niz, index2
+//		Code.load(swapElements.obj); // // niz, index2, tmp
+//		if (swapElements.getDesignatorArrayName().getDesignator().obj.getType().getElemType() == Tab.charType) {
+//			// CHAR ARRAY
+//			Code.put(Code.bastore);
+//		}else {
+//			// NON-CHAR ARRAY
+//			Code.put(Code.astore);
+//		}
+//		
+//		// preskociti trap
+//		Code.putJump(0);
+//		int jumpOverTrap = Code.pc - 2;
+//		
+//		// TRAP
+//		Code.fixup(kraj1);
+//		Code.fixup(kraj2);
+//		Code.fixup(kraj3);
+//		Code.fixup(kraj4);
+//		// generisati trap
+//		Code.put(Code.trap);
+//		Code.put(1);
+//		
+//		// KRAJ
+//		Code.fixup(jumpOverTrap);
+//	}
+	
+	// MODIFIKACIJA
+	// print(niz[index]$); - broj pristupa elementu niza
+		
+	// MODIFIKACIJA
+	// prijaviti trap ako index elementa niza nije u dobrom opsegu
+//	public void visit(DesignatorMoreExpr designatorMoreExpr) {
+//		
+//		// broj pristupa elementu niza
+////		if (designatorMoreExpr.getDolarPart() instanceof DolarNonEmpty) {
+////			
+////			int index = Integer.MIN_VALUE;
+////	    	if (designatorMoreExpr.getExpr() instanceof ExpressionTerm) {
+////	    		ExpressionTerm et = (ExpressionTerm) designatorMoreExpr.getExpr();
+////	    		if (et.getTerm() instanceof TermFactor) {
+////	    			TermFactor tf = (TermFactor) et.getTerm();
+////	    			if (tf.getFactor() instanceof FactorNumber) {
+////	    				FactorNumber fn = (FactorNumber) tf.getFactor();
+////	    				index = fn.getN();
+////	    			}
+////	    		}
+////	    	}
+////			
+////			String designatorElementName = designatorMoreExpr.getDesignatorArrayName().getDesignator().obj.getName() 
+////					+ " " + index;
+////					
+////			int numberOfOccurences = SemanticPass.mapElementsCounter.get(designatorElementName);
+////			
+////			Code.loadConst(numberOfOccurences);
+////			Code.store(designatorMoreExpr.obj);
+////
+////			return;
+////		}
+//		
+//		// ako je index elementa niza < 0 or >= arraylength, baciti trap
+//		
+//		// stack: niz, index
+//		Code.put(Code.dup2); // niz, index, niz, index
+//		Code.put(Code.pop); // niz, index, niz
+//		Code.put(Code.arraylength); // niz, index, duzina_niza
+//		Code.put(Code.dup2); // niz, index, duzina_niza, index, duzina_niza
+//		Code.put(Code.pop); // niz, index, duzina_niza, index,
+//		Code.put(Code.dup_x1); // niz, index, index, duzina_niza, index,
+//		Code.loadConst(0); // niz, index, index, duzina_niza, index, 0
+//		
+//		Code.putFalseJump(Code.ge, 0); // jlt TRAP
+//		int trapAdr = Code.pc - 2;
+//		
+//		Code.putFalseJump(Code.lt, 0); // jge TRAP
+//		int trapAdr2 = Code.pc - 2;
+//		
+//		// preskociti trap
+//		Code.putJump(0);
+//		int jumpOverTrapAdr = Code.pc - 2;
+//		
+//		// TRAP
+//		Code.fixup(trapAdr);
+//		Code.fixup(trapAdr2);
+//		Code.put(Code.trap);
+//		Code.put(1);
+//		
+//		// KRAJ
+//		Code.fixup(jumpOverTrapAdr);
+//	}
